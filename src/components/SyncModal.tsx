@@ -1,4 +1,22 @@
+import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import {
   decodeSyncPairingToken,
   encodeSyncPairingToken,
@@ -8,6 +26,7 @@ import {
   saveSyncConfig,
   type SyncConfig,
 } from "@/lib/cloudSync.ts";
+import { hapticSelection, hapticSuccess } from "@/lib/haptics.ts";
 import { getTranslation } from "@/lib/i18n.ts";
 import { mergeDBs } from "@/lib/syncEngine.ts";
 import type { DB, Language } from "@/lib/types.ts";
@@ -16,14 +35,13 @@ import {
   Check,
   ClipboardCopy,
   Cloud,
-  HelpCircle,
   KeyRound,
   Lock,
   QrCode,
   RefreshCw,
+  Server,
   ShieldCheck,
   Sparkles,
-  X,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
@@ -41,20 +59,20 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
   const t = getTranslation(lang);
   const isFa = lang === "fa";
 
+  const [activeTab, setActiveTab] = useState("quick");
   const [syncConfig, setSyncConfig] = useState<SyncConfig>(loadSyncConfig());
   const [isSyncing, setIsSyncing] = useState(false);
   const [serverStatus, setServerStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
   const [statusMessage, setStatusMessage] = useState("");
 
   // Fast device pairing & QR state
-  const [showPairQr, setShowPairQr] = useState(false);
   const [pairingQrUrl, setPairingQrUrl] = useState<string>("");
   const [pastePairToken, setPastePairToken] = useState("");
   const [isPairCopied, setIsPairCopied] = useState(false);
 
   // Generate pairing QR code based on active config
   useEffect(() => {
-    if (!open || !showPairQr) return;
+    if (!open) return;
     if (
       !syncConfig.serverUrl.trim() ||
       !syncConfig.vaultId.trim() ||
@@ -68,7 +86,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
       const token = encodeSyncPairingToken(syncConfig);
       void QRCode.toDataURL(token, {
         margin: 1,
-        width: 260,
+        width: 240,
         errorCorrectionLevel: "M",
         color: {
           dark: "#000000",
@@ -78,17 +96,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
     } catch {
       setPairingQrUrl("");
     }
-  }, [open, showPairQr, syncConfig]);
-
-  // Close modal on Escape
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
+  }, [open, syncConfig]);
 
   // Test custom relay server health
   const handleTestServer = async () => {
@@ -155,6 +163,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
       setSyncConfig(updatedConfig);
       saveSyncConfig(updatedConfig);
 
+      void hapticSuccess();
       onMessage(t.syncSuccess);
     } catch (err) {
       onMessage(t.syncError(err instanceof Error ? err.message : "Unknown error"));
@@ -193,6 +202,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
     const next = { ...syncConfig, vaultId: code };
     setSyncConfig(next);
     saveSyncConfig(next);
+    void hapticSelection();
     onMessage(t.syncVaultGenerated(code));
   };
 
@@ -202,230 +212,266 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
     Boolean(syncConfig.secretKey.trim());
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xs"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent onClose={onClose} className="max-w-lg p-0 gap-0">
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between border-b border-zinc-800/80 pb-3">
+        <DialogHeader className="p-5 pb-3 border-b border-zinc-800/80">
           <div className="flex items-center gap-2.5">
-            <div className="grid size-8 place-items-center rounded-xl bg-sky-950/80 border border-sky-800/60 text-sky-400">
+            <div className="grid size-8 place-items-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300">
               <Cloud className="size-4" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-zinc-100">{t.syncTitle}</h2>
-              <p className="text-[11px] text-zinc-400">{t.syncSubtitle}</p>
+              <DialogTitle>{t.syncTitle}</DialogTitle>
+              <DialogDescription>{t.syncSubtitle}</DialogDescription>
             </div>
           </div>
-          <Button variant="ghost" size="icon" aria-label={t.close} onClick={onClose}>
-            <X />
-          </Button>
-        </div>
+        </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Quick Pair Card (Scan QR or Paste Token) */}
-          <div className="rounded-xl border border-sky-900/50 bg-sky-950/20 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-sky-300">
-                <Sparkles className="size-3.5 text-sky-400" />
-                {t.syncQuickPair}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowPairQr((p) => !p)}
-                disabled={!isConfigReady}
-                className={cn(
-                  "flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg border transition-colors cursor-pointer",
-                  isConfigReady
-                    ? "bg-sky-900/40 text-sky-300 border-sky-700/60 hover:bg-sky-800/50"
-                    : "text-zinc-600 border-zinc-800 cursor-not-allowed",
-                )}
+        {/* Tabbed Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-0">
+          <div className="border-b border-zinc-800/80 bg-zinc-900/30 px-5 pt-2">
+            <TabsList className="bg-transparent border-0 p-0 h-auto gap-2">
+              <TabsTrigger
+                value="quick"
+                className="gap-1.5 pb-2.5 rounded-none border-b-2 border-transparent data-[state=active]:border-amber-400"
               >
-                <QrCode className="size-3" />
-                <span>{showPairQr ? t.syncHideQr : t.syncShowQr}</span>
-              </button>
-            </div>
+                <Sparkles className="size-3.5" />
+                <span>{t.syncQuickPair}</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="manual"
+                className="gap-1.5 pb-2.5 rounded-none border-b-2 border-transparent data-[state=active]:border-amber-400"
+              >
+                <Server className="size-3.5" />
+                <span>{isFa ? "تنظیمات دستی سرور" : "Manual Settings"}</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-            {/* QR Code Display Card */}
-            {showPairQr && isConfigReady && (
-              <div className="my-3 flex flex-col items-center rounded-xl border border-zinc-800 bg-zinc-900/80 p-3">
-                {pairingQrUrl ? (
-                  <div className="overflow-hidden rounded-xl border-4 border-white bg-white shadow-lg">
-                    <img src={pairingQrUrl} alt="Pairing QR" className="size-44 sm:size-48" />
+          <div className="max-h-[60vh] overflow-y-auto p-5 space-y-4">
+            {/* TAB: QUICK PAIR */}
+            <TabsContent value="quick" className="space-y-4 m-0">
+              {/* QR Code Section */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xs flex items-center gap-1.5">
+                      <QrCode className="size-3.5 text-zinc-400" />
+                      <span>{isFa ? "بارکد اتصال سریع" : "Pairing QR Code"}</span>
+                    </CardTitle>
+                    {isConfigReady ? (
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] text-emerald-400 border-emerald-900/50 bg-emerald-950/30"
+                      >
+                        {isFa ? "آماده اسکن" : "Ready to scan"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-zinc-500">
+                        {isFa ? "نیاز به تنظیم سرور" : "Needs server config"}
+                      </Badge>
+                    )}
                   </div>
-                ) : (
-                  <div className="py-8 text-xs text-zinc-500">Generating QR...</div>
-                )}
-                <p className="mt-2 text-center text-[11px] text-zinc-300">{t.syncQrDesc}</p>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const token = encodeSyncPairingToken(syncConfig);
-                    await navigator.clipboard.writeText(token);
-                    setIsPairCopied(true);
-                    onMessage(t.syncTokenCopied);
-                    setTimeout(() => setIsPairCopied(false), 2000);
-                  }}
-                  className="mt-2 flex items-center gap-1 text-xs text-sky-400 hover:underline cursor-pointer"
-                >
-                  <ClipboardCopy className="size-3" />
-                  <span>{isPairCopied ? t.copied : t.syncCopyToken}</span>
-                </button>
-              </div>
-            )}
-
-            {/* Paste Token Input */}
-            <div className="flex gap-2 mt-2">
-              <input
-                value={pastePairToken}
-                onChange={(e) => setPastePairToken(e.target.value)}
-                placeholder={t.syncTokenPlaceholder}
-                className="flex-1 rounded-lg border border-sky-900/70 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-100 font-mono outline-none focus:border-sky-500"
-              />
-              <Button
-                size="sm"
-                onClick={handleApplyPairToken}
-                disabled={!pastePairToken.trim()}
-                className="bg-sky-600 text-white hover:bg-sky-500 text-xs font-semibold px-3 cursor-pointer"
-              >
-                {t.syncPairNow}
-              </Button>
-            </div>
-          </div>
-
-          {/* Manual Relay Server Settings */}
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5 space-y-3">
-            {/* Server URL */}
-            <div>
-              <label className="block mb-1 text-[11px] font-medium text-zinc-300">
-                {t.syncServerUrl}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  placeholder="https://taskdrop-sync-relay.YOUR_NAME.workers.dev"
-                  value={syncConfig.serverUrl}
-                  onChange={(e) => {
-                    const next = { ...syncConfig, serverUrl: e.target.value };
-                    setSyncConfig(next);
-                    saveSyncConfig(next);
-                    setServerStatus("idle");
-                  }}
-                  className="flex-1 rounded-lg border border-zinc-700/80 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 font-mono outline-none focus:border-sky-500"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleTestServer}
-                  disabled={serverStatus === "testing"}
-                  className="border-zinc-700 bg-zinc-800 text-xs text-zinc-200 hover:bg-zinc-700"
-                >
-                  {serverStatus === "testing" ? (
-                    <RefreshCw className="size-3 animate-spin" />
-                  ) : serverStatus === "ok" ? (
-                    <Check className="size-3 text-emerald-400" />
+                  <CardDescription>
+                    {isConfigReady
+                      ? t.syncQrDesc
+                      : isFa
+                        ? "ابتدا از تب تنظیمات دستی، آدرس سرور و کلید رمزنگاری را مشخص کنید."
+                        : "Configure server URL and secret key in manual settings first."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center">
+                  {isConfigReady && pairingQrUrl ? (
+                    <div className="my-2 flex flex-col items-center gap-2">
+                      <div className="overflow-hidden rounded-xl border-4 border-white bg-white shadow-xl">
+                        <img src={pairingQrUrl} alt="Pairing QR" className="size-40 sm:size-44" />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          const token = encodeSyncPairingToken(syncConfig);
+                          await navigator.clipboard.writeText(token);
+                          setIsPairCopied(true);
+                          void hapticSuccess();
+                          onMessage(t.syncTokenCopied);
+                          setTimeout(() => setIsPairCopied(false), 2000);
+                        }}
+                        className="gap-1.5 text-xs text-zinc-300 hover:text-white"
+                      >
+                        <ClipboardCopy className="size-3.5" />
+                        <span>{isPairCopied ? t.copied : t.syncCopyToken}</span>
+                      </Button>
+                    </div>
                   ) : (
-                    t.syncServerTest
+                    <div className="py-6 text-center text-xs text-zinc-500">
+                      {isFa
+                        ? "برای تولید خودکار بارکد، فیلدهای سرور و کلید را پر کنید."
+                        : "Fill server fields to generate pairing QR code."}
+                    </div>
                   )}
-                </Button>
-              </div>
-              {statusMessage && (
-                <p
-                  className={cn(
-                    "mt-1 text-[10px]",
-                    serverStatus === "ok" ? "text-emerald-400" : "text-amber-400",
-                  )}
-                >
-                  {statusMessage}
-                </p>
-              )}
-            </div>
+                </CardContent>
+              </Card>
 
-            {/* Auth Token (Optional) */}
-            <div>
-              <label className="block mb-1 text-[11px] font-medium text-zinc-300">
-                {t.syncAuthToken}
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  placeholder={t.syncAuthTokenPlaceholder}
-                  value={syncConfig.authToken || ""}
-                  onChange={(e) => {
-                    const next = { ...syncConfig, authToken: e.target.value };
-                    setSyncConfig(next);
-                    saveSyncConfig(next);
-                  }}
-                  className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 font-mono outline-none focus:border-sky-500"
-                />
-                <ShieldCheck className="absolute end-2.5 top-2 size-3.5 text-zinc-500" />
-              </div>
-            </div>
+              {/* Paste Token Section */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs">
+                    {isFa ? "ورود رشته اتصال دستگاه دیگر" : "Import Pairing Token"}
+                  </CardTitle>
+                  <CardDescription>
+                    {isFa
+                      ? "رشته اتصال کپی‌شده از دستگاه اول را اینجا پیست کنید تا سینک خودکار فعال شود."
+                      : "Paste the pairing token string from your other device to connect instantly."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2">
+                    <Input
+                      value={pastePairToken}
+                      onChange={(e) => setPastePairToken(e.target.value)}
+                      placeholder={t.syncTokenPlaceholder}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleApplyPairToken}
+                      disabled={!pastePairToken.trim()}
+                      className="bg-amber-500 text-zinc-950 hover:bg-amber-400 font-semibold px-4 cursor-pointer"
+                    >
+                      {t.syncPairNow}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-            {/* Vault ID */}
-            <div>
-              <div className="mb-1 flex items-center justify-between text-[11px] font-medium text-zinc-300">
-                <span>{t.syncVaultId}</span>
-                <button
-                  type="button"
-                  onClick={handleGenerateVaultId}
-                  className="text-[10px] text-sky-400 hover:underline cursor-pointer"
-                >
-                  {t.syncGenerateVault}
-                </button>
+            {/* TAB: MANUAL SERVER SETTINGS */}
+            <TabsContent value="manual" className="space-y-3 m-0">
+              {/* Server URL */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-zinc-300">{t.syncServerUrl}</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="https://taskdrop-sync-relay.YOUR_NAME.workers.dev"
+                    value={syncConfig.serverUrl}
+                    onChange={(e) => {
+                      const next = { ...syncConfig, serverUrl: e.target.value };
+                      setSyncConfig(next);
+                      saveSyncConfig(next);
+                      setServerStatus("idle");
+                    }}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleTestServer}
+                    disabled={serverStatus === "testing"}
+                    className="shrink-0 text-xs"
+                  >
+                    {serverStatus === "testing" ? (
+                      <RefreshCw className="size-3.5 animate-spin" />
+                    ) : serverStatus === "ok" ? (
+                      <Check className="size-3.5 text-emerald-400" />
+                    ) : (
+                      t.syncServerTest
+                    )}
+                  </Button>
+                </div>
+                {statusMessage && (
+                  <p
+                    className={cn(
+                      "text-[10px]",
+                      serverStatus === "ok" ? "text-emerald-400" : "text-amber-400",
+                    )}
+                  >
+                    {statusMessage}
+                  </p>
+                )}
               </div>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="TASK-XXXXXX"
-                  value={syncConfig.vaultId}
-                  onChange={(e) => {
-                    const next = { ...syncConfig, vaultId: e.target.value.toUpperCase() };
-                    setSyncConfig(next);
-                    saveSyncConfig(next);
-                  }}
-                  className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 font-mono outline-none uppercase focus:border-sky-500"
-                />
-                <KeyRound className="absolute end-2.5 top-2 size-3.5 text-zinc-500" />
-              </div>
-            </div>
 
-            {/* Encryption Key */}
-            <div>
-              <label className="block mb-1 text-[11px] font-medium text-zinc-300">
-                {t.syncSecretKey}
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  placeholder={t.syncSecretKeyPlaceholder}
-                  value={syncConfig.secretKey}
-                  onChange={(e) => {
-                    const next = { ...syncConfig, secretKey: e.target.value };
-                    setSyncConfig(next);
-                    saveSyncConfig(next);
-                  }}
-                  className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 font-mono outline-none focus:border-sky-500"
-                />
-                <Lock className="absolute end-2.5 top-2 size-3.5 text-zinc-500" />
+              {/* Auth Token */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-zinc-300">{t.syncAuthToken}</label>
+                <div className="relative">
+                  <Input
+                    type="password"
+                    placeholder={t.syncAuthTokenPlaceholder}
+                    value={syncConfig.authToken || ""}
+                    onChange={(e) => {
+                      const next = { ...syncConfig, authToken: e.target.value };
+                      setSyncConfig(next);
+                      saveSyncConfig(next);
+                    }}
+                    className="font-mono text-xs pe-8"
+                  />
+                  <ShieldCheck className="absolute end-2.5 top-3 size-4 text-zinc-500 pointer-events-none" />
+                </div>
               </div>
-              <p className="mt-1 text-[10px] text-zinc-500">{t.syncSecretKeyHint}</p>
-            </div>
 
-            {/* Sync Button */}
-            <Button
-              onClick={() => void handleCloudSync()}
-              disabled={isSyncing}
-              className="w-full gap-2 bg-sky-600 text-white hover:bg-sky-500 font-semibold text-xs mt-2 cursor-pointer"
-            >
-              <RefreshCw className={cn("size-3.5", isSyncing && "animate-spin")} />
-              <span>{isSyncing ? t.syncing : t.syncNow}</span>
-            </Button>
+              {/* Vault ID */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-medium text-zinc-300">
+                  <span>{t.syncVaultId}</span>
+                  <button
+                    type="button"
+                    onClick={handleGenerateVaultId}
+                    className="text-[11px] text-amber-400 hover:underline cursor-pointer"
+                  >
+                    {t.syncGenerateVault}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="TASK-XXXXXX"
+                    value={syncConfig.vaultId}
+                    onChange={(e) => {
+                      const next = { ...syncConfig, vaultId: e.target.value.toUpperCase() };
+                      setSyncConfig(next);
+                      saveSyncConfig(next);
+                    }}
+                    className="font-mono text-xs pe-8 uppercase"
+                  />
+                  <KeyRound className="absolute end-2.5 top-3 size-4 text-zinc-500 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Encryption Secret Key */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-zinc-300">{t.syncSecretKey}</label>
+                <div className="relative">
+                  <Input
+                    type="password"
+                    placeholder={t.syncSecretKeyPlaceholder}
+                    value={syncConfig.secretKey}
+                    onChange={(e) => {
+                      const next = { ...syncConfig, secretKey: e.target.value };
+                      setSyncConfig(next);
+                      saveSyncConfig(next);
+                    }}
+                    className="font-mono text-xs pe-8"
+                  />
+                  <Lock className="absolute end-2.5 top-3 size-4 text-zinc-500 pointer-events-none" />
+                </div>
+                <p className="text-[10px] text-zinc-500">{t.syncSecretKeyHint}</p>
+              </div>
+            </TabsContent>
           </div>
+        </Tabs>
+
+        {/* Sync Trigger Action & Status */}
+        <div className="border-t border-zinc-800/80 bg-zinc-900/40 p-4 space-y-3">
+          <Button
+            onClick={() => void handleCloudSync()}
+            disabled={isSyncing}
+            className="w-full gap-2 bg-amber-500 text-zinc-950 hover:bg-amber-400 font-semibold text-xs cursor-pointer"
+          >
+            <RefreshCw className={cn("size-3.5", isSyncing && "animate-spin")} />
+            <span>{isSyncing ? t.syncing : t.syncNow}</span>
+          </Button>
 
           {syncConfig.lastSyncedAt && (
             <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1">
@@ -438,16 +484,12 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
         </div>
 
         {/* Footer */}
-        <div className="mt-5 flex items-center justify-between border-t border-zinc-800/80 pt-3 text-xs text-zinc-500">
-          <div className="flex items-center gap-1">
-            <HelpCircle className="size-3.5 text-zinc-400" />
-            <span>{t.syncConflictFreeNotice}</span>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+        <DialogFooter className="border-t border-zinc-800/80 bg-zinc-950 px-5 py-3">
+          <Button variant="outline" size="sm" onClick={onClose}>
             {t.close}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
