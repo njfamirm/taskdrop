@@ -326,18 +326,17 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <Input
                       value={pastePairToken}
                       onChange={(e) => setPastePairToken(e.target.value)}
                       placeholder={t.syncTokenPlaceholder}
-                      className="font-mono text-xs"
+                      className="h-9 font-mono text-xs"
                     />
                     <Button
-                      size="sm"
                       onClick={handleApplyPairToken}
                       disabled={!pastePairToken.trim()}
-                      className="bg-amber-500 text-zinc-950 hover:bg-amber-400 font-semibold px-4 cursor-pointer"
+                      className="h-9 shrink-0 bg-amber-500 text-zinc-950 hover:bg-amber-400 font-semibold px-4 cursor-pointer text-xs"
                     >
                       {t.syncPairNow}
                     </Button>
@@ -351,7 +350,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
               {/* Server URL */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-zinc-300">{t.syncServerUrl}</label>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <Input
                     type="url"
                     placeholder="https://taskdrop-sync-relay.YOUR_NAME.workers.dev"
@@ -362,14 +361,13 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       saveSyncConfig(next);
                       setServerStatus("idle");
                     }}
-                    className="font-mono text-xs"
+                    className="h-9 font-mono text-xs"
                   />
                   <Button
-                    size="sm"
                     variant="outline"
                     onClick={handleTestServer}
                     disabled={serverStatus === "testing"}
-                    className="shrink-0 text-xs"
+                    className="h-9 shrink-0 text-xs px-3"
                   >
                     {serverStatus === "testing" ? (
                       <RefreshCw className="size-3.5 animate-spin" />
@@ -405,9 +403,9 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       setSyncConfig(next);
                       saveSyncConfig(next);
                     }}
-                    className="font-mono text-xs pe-8"
+                    className="h-9 font-mono text-xs pe-8"
                   />
-                  <ShieldCheck className="absolute end-2.5 top-3 size-4 text-zinc-500 pointer-events-none" />
+                  <ShieldCheck className="absolute end-2.5 top-2.5 size-4 text-zinc-500 pointer-events-none" />
                 </div>
               </div>
 
@@ -433,9 +431,9 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       setSyncConfig(next);
                       saveSyncConfig(next);
                     }}
-                    className="font-mono text-xs pe-8 uppercase"
+                    className="h-9 font-mono text-xs pe-8 uppercase"
                   />
-                  <KeyRound className="absolute end-2.5 top-3 size-4 text-zinc-500 pointer-events-none" />
+                  <KeyRound className="absolute end-2.5 top-2.5 size-4 text-zinc-500 pointer-events-none" />
                 </div>
               </div>
 
@@ -452,9 +450,9 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       setSyncConfig(next);
                       saveSyncConfig(next);
                     }}
-                    className="font-mono text-xs pe-8"
+                    className="h-9 font-mono text-xs pe-8"
                   />
-                  <Lock className="absolute end-2.5 top-3 size-4 text-zinc-500 pointer-events-none" />
+                  <Lock className="absolute end-2.5 top-2.5 size-4 text-zinc-500 pointer-events-none" />
                 </div>
                 <p className="text-[10px] text-zinc-500">{t.syncSecretKeyHint}</p>
               </div>
