@@ -8,11 +8,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { Textarea } from "@/components/ui/input.tsx";
+import { buildReportPayload } from "@/lib/payload.ts";
 import { hapticSuccess } from "@/lib/haptics.ts";
 import { getTranslation } from "@/lib/i18n.ts";
 import type { DB, Language } from "@/lib/types.ts";
 import { cn } from "@/lib/utils.ts";
-import { CheckCircle2, ChevronLeft, ChevronRight, ClipboardCopy, NotebookPen } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCopy,
+  NotebookPen,
+  Sparkles,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 interface Props {
@@ -101,6 +109,14 @@ export function DailyReportModal({ open, db, lang, onSave, onClose, onMessage }:
       await navigator.clipboard.writeText(lines.join("\n"));
       void hapticSuccess();
       onMessage(t.dailyReportCopied);
+    } catch {}
+  };
+
+  const handleAskAI = async () => {
+    try {
+      await navigator.clipboard.writeText(buildReportPayload(db, date));
+      void hapticSuccess();
+      onMessage(t.dailyReportAICopied);
     } catch {}
   };
 
@@ -205,10 +221,16 @@ export function DailyReportModal({ open, db, lang, onSave, onClose, onMessage }:
         </div>
 
         <DialogFooter className="flex items-center justify-between border-t border-zinc-800/80 pt-3">
-          <Button variant="ghost" size="sm" onClick={handleCopy} className="gap-1.5">
-            <ClipboardCopy className="size-3.5" />
-            {t.dailyReportCopy}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={handleAskAI} className="gap-1.5">
+              <Sparkles className="size-3.5 text-amber-400" />
+              {t.dailyReportAI}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleCopy} className="gap-1.5">
+              <ClipboardCopy className="size-3.5" />
+              {t.dailyReportCopy}
+            </Button>
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onClose}>
               {t.cancel}

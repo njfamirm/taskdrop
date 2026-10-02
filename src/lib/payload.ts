@@ -19,7 +19,7 @@ Tasks have optional due dates and priorities; the app alerts the user when a dea
 6. \`due\` is an ISO 8601 string with local timezone offset (e.g. "2026-09-28T10:00:00+03:30"), or \`null\` if no deadline.
 7. \`repeat\`: One of "none" | "daily" | "weekly" | "monthly".
 8. \`priority\`: One of "none" | "low" | "medium" | "high".
-9. \`notes\` are pinned focus notes displayed at the top of the canvas. \`reports\` are the user's own daily written reports (one per date); preserve them as-is.
+9. \`notes\` are pinned focus notes displayed at the top of the canvas. \`reports\` are daily written reports, one per \`date\` (YYYY-MM-DD). When asked, write or update a report by adding/replacing the entry for that date: summarize the tasks whose \`doneAt\` falls on that local day (plus relevant context from notes), in first person, in the user's language, concise. Never touch other dates' reports unless asked.
 10. \`aiMemory\` contains the user's persistent preferences and directives for you; always respect it unless explicitly asked to modify it.
 11. \`done: true\` marks a task as completed.
 12. **Scoped Tags & Organization (\`tags\`):** You may use structured scoped tags with \`key:value\` syntax (e.g. \`"حوزه:کار"\`, \`"حوزه:شخصی"\`, \`"نوع:روتین"\`, \`"پروژه:..."\`) based on the user's context and existing taxonomy. Maintain existing categories and scopes consistently.
@@ -72,4 +72,13 @@ export function buildPayload(db: DB): string {
   return `${SPEC}${memorySection}\n## Current Time\n${localISO(now)} (${weekday}) — Timezone: ${
     Intl.DateTimeFormat().resolvedOptions().timeZone
   }\n\n## Database State\n\`\`\`json\n${JSON.stringify(cleanDb, null, 2)}\n\`\`\`\n`;
+}
+
+/** AI payload plus an explicit request to write the daily report for a given local day (YYYY-MM-DD) */
+export function buildReportPayload(db: DB, date: string): string {
+  const existing = db.reports.find((r) => r.date === date && !r.deletedAt);
+  const ask = `\n## Your Task\nWrite the daily report for ${date}. Base it on the tasks completed on that day (\`doneAt\`)${
+    existing ? ", and improve the existing report for that date" : ""
+  }. Return the full updated DB JSON with the \`reports\` entry for ${date} added or replaced.\n`;
+  return buildPayload(db) + ask;
 }
