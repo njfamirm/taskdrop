@@ -97,7 +97,7 @@ export function SyncBar({ db, lang = "fa", onReplace, onUpdateMemory, onMessage 
             rows={6}
             defaultValue={fallback}
             placeholder={t.pasteFallbackPlaceholder}
-            className="font-mono text-xs"
+            className="text-xs"
             onKeyDown={(e) => {
               if (e.key === "Escape") setFallback(null);
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) apply(e.currentTarget.value);

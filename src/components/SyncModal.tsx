@@ -331,7 +331,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       value={pastePairToken}
                       onChange={(e) => setPastePairToken(e.target.value)}
                       placeholder={t.syncTokenPlaceholder}
-                      className="h-9 font-mono text-xs"
+                      className="h-9 text-xs"
                     />
                     <Button
                       onClick={handleApplyPairToken}
@@ -361,7 +361,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       saveSyncConfig(next);
                       setServerStatus("idle");
                     }}
-                    className="h-9 font-mono text-xs"
+                    className="h-9 text-xs"
                   />
                   <Button
                     variant="outline"
@@ -403,7 +403,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       setSyncConfig(next);
                       saveSyncConfig(next);
                     }}
-                    className="h-9 font-mono text-xs pe-8"
+                    className="h-9 text-xs pe-8"
                   />
                   <ShieldCheck className="absolute end-2.5 top-2.5 size-4 text-zinc-500 pointer-events-none" />
                 </div>
@@ -431,7 +431,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       setSyncConfig(next);
                       saveSyncConfig(next);
                     }}
-                    className="h-9 font-mono text-xs pe-8 uppercase"
+                    className="h-9 text-xs pe-8 uppercase"
                   />
                   <KeyRound className="absolute end-2.5 top-2.5 size-4 text-zinc-500 pointer-events-none" />
                 </div>
@@ -450,7 +450,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
                       setSyncConfig(next);
                       saveSyncConfig(next);
                     }}
-                    className="h-9 font-mono text-xs pe-8"
+                    className="h-9 text-xs pe-8"
                   />
                   <Lock className="absolute end-2.5 top-2.5 size-4 text-zinc-500 pointer-events-none" />
                 </div>
@@ -474,7 +474,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
           {syncConfig.lastSyncedAt && (
             <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1">
               <span>{t.syncLastSuccess}</span>
-              <span className="font-mono text-zinc-300">
+              <span className="text-zinc-300">
                 {new Date(syncConfig.lastSyncedAt).toLocaleTimeString(isFa ? "fa-IR" : "en-US")}
               </span>
             </div>

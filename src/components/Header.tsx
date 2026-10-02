@@ -17,6 +17,7 @@ import {
   ClipboardCopy,
   ClipboardPaste,
   Cloud,
+  Download,
   NotebookPen,
   HelpCircle,
   MoreVertical,
@@ -100,6 +101,17 @@ export function Header({
     } catch {
       setFallback(text);
     }
+  };
+
+  const downloadContext = () => {
+    const blob = new Blob([buildPayload(db)], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `taskdrop-context-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    void hapticSuccess();
   };
 
   const apply = (text: string) => {
@@ -293,6 +305,19 @@ export function Header({
                   <span className="flex-1 text-start">{t.dailyReport}</span>
                 </button>
 
+                {/* Download full AI context */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    downloadContext();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors cursor-pointer"
+                >
+                  <Download className="size-4 text-zinc-400" />
+                  <span className="flex-1 text-start">{t.downloadContext}</span>
+                </button>
+
                 {/* Help & Shortcuts */}
                 <button
                   type="button"
@@ -393,7 +418,7 @@ export function Header({
               rows={8}
               defaultValue={fallback}
               placeholder={t.pasteFallbackPlaceholder}
-              className="font-mono text-xs mb-3"
+              className="text-xs mb-3"
               id="sync-fallback-modal"
             />
             <div className="flex justify-end gap-2">

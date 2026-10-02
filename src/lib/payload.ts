@@ -52,7 +52,7 @@ function localISO(d: Date) {
 }
 
 /** Builds the full AI-ready payload string: specifications + memory + current time + database snapshot */
-export function buildPayload(db: DB): string {
+export function buildPayload(db: DB, compact = false): string {
   const now = new Date();
   const isFa = db.settings.language === "fa";
   const weekday = now.toLocaleDateString(isFa ? "fa-IR" : "en-US", { weekday: "long" });
@@ -71,14 +71,31 @@ export function buildPayload(db: DB): string {
 
   return `${SPEC}${memorySection}\n## Current Time\n${localISO(now)} (${weekday}) — Timezone: ${
     Intl.DateTimeFormat().resolvedOptions().timeZone
-  }\n\n## Database State\n\`\`\`json\n${JSON.stringify(cleanDb, null, 2)}\n\`\`\`\n`;
+  }\n\n## Database State\n\`\`\`json\n${JSON.stringify(cleanDb, null, compact ? 0 : 2)}\n\`\`\`\n`;
 }
 
-/** AI payload plus an explicit request to write the daily report for a given local day (YYYY-MM-DD) */
+function localDay(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Compact payload for the daily report: only that day's done tasks, open tasks and nearby reports */
 export function buildReportPayload(db: DB, date: string): string {
   const existing = db.reports.find((r) => r.date === date && !r.deletedAt);
+  const slim: DB = {
+    ...db,
+    notes: db.notes.filter((n) => !n.deletedAt),
+    reports: db.reports
+      .filter((r) => !r.deletedAt && r.date <= date)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 3),
+    tasks: db.tasks.filter(
+      (t) => !t.deletedAt && (t.done ? !!t.doneAt && localDay(t.doneAt) === date : true),
+    ),
+  };
   const ask = `\n## Your Task\nWrite the daily report for ${date}. Base it on the tasks completed on that day (\`doneAt\`)${
     existing ? ", and improve the existing report for that date" : ""
-  }. Return the full updated DB JSON with the \`reports\` entry for ${date} added or replaced.\n`;
-  return buildPayload(db) + ask;
+  }. Only completed tasks of that day are included; other days' tasks and reports are omitted on purpose. Return the full updated DB JSON with the \`reports\` entry for ${date} added or replaced.\n`;
+  return buildPayload(slim, true) + ask;
 }

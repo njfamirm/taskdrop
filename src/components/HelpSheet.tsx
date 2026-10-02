@@ -196,7 +196,7 @@ function Table({ title, icon, rows }: { title: string; icon?: ReactNode; rows: R
               (i > 0 ? " border-t border-zinc-800/80" : "")
             }
           >
-            <code className="shrink-0 font-mono text-zinc-200 bg-zinc-800/80 px-2 py-0.5 rounded-md text-xs border border-zinc-700/60 shadow-xs">
+            <code className="shrink-0 text-zinc-200 bg-zinc-800/80 px-2 py-0.5 rounded-md text-xs border border-zinc-700/60 shadow-xs">
               {r.pattern}
             </code>
             <span className="text-end text-zinc-400 text-xs leading-5">{r.meaning}</span>
@@ -268,7 +268,7 @@ export function HelpSheet({ open, lang = "fa", onClose }: Props) {
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3 text-sm">
             <div className="mb-1 text-xs font-semibold text-zinc-400">{t.helpExampleTitle}</div>
-            <code className="text-zinc-100 font-mono text-xs">{t.helpExampleText}</code>
+            <code className="text-zinc-100 text-xs">{t.helpExampleText}</code>
             <div className="mt-1 text-xs text-zinc-400">{t.helpExampleExplanation}</div>
           </div>
         </div>

@@ -461,7 +461,7 @@ export function QuickAdd({ onAdd, existingTags = [], lang = "fa" }: Props) {
                     )}
 
                     {item.type === "date" && (
-                      <span className="flex items-center gap-1.5 font-mono text-zinc-100">
+                      <span className="flex items-center gap-1.5 text-zinc-100">
                         <Clock className="size-3.5 text-emerald-400" />
                         <span>{item.displayTitle}</span>
                       </span>
