@@ -74,7 +74,7 @@ export function App() {
   }, [lang]);
 
   // Automatic real-time background cloud synchronization
-  useAutoCloudSync({
+  const initialSyncDone = useAutoCloudSync({
     db,
     onApplyRemote: setDb,
   });
@@ -201,6 +201,8 @@ export function App() {
 
   // Periodic reminder checking engine (checks due alarms every interval)
   useEffect(() => {
+    // Hold alarms until the first sync settles so stale local state can't ring already-done tasks
+    if (!initialSyncDone) return;
     const tick = () => {
       setNow(Date.now());
       const currentTime = Date.now();
@@ -235,7 +237,8 @@ export function App() {
         update((prev) => ({
           ...prev,
           tasks: prev.tasks.map((x) =>
-            ids.has(x.id) ? { ...x, notifiedAt: nowIso, updatedAt: nowIso } : x,
+            // Do not bump updatedAt: ringing is not a user edit and must never win LWW over a remote "done"
+            ids.has(x.id) ? { ...x, notifiedAt: nowIso } : x,
           ),
         }));
       }
@@ -244,7 +247,7 @@ export function App() {
     tick();
     const id = setInterval(tick, db.settings.checkIntervalSec * 1000);
     return () => clearInterval(id);
-  }, [db, update, t.appName]);
+  }, [db, update, t.appName, initialSyncDone]);
 
   const due = useMemo(
     () =>
@@ -625,6 +628,23 @@ export function App() {
         onUpdateMemory={(aiMemory) => update((prev) => ({ ...prev, aiMemory }))}
         onUpdateSetting={setSetting}
         onClearDone={clearDone}
+        onSaveReport={(date, text) => {
+          const nowIso = new Date().toISOString();
+          update((prev) => {
+            const rest = prev.reports.filter((r) => r.date !== date);
+            if (!text) {
+              const old = prev.reports.find((r) => r.date === date);
+              return {
+                ...prev,
+                reports: old ? [...rest, { ...old, deletedAt: nowIso, updatedAt: nowIso }] : rest,
+              };
+            }
+            return {
+              ...prev,
+              reports: [...rest, { date, text, updatedAt: nowIso, deletedAt: null }],
+            };
+          });
+        }}
         onMessage={showToast}
       />
 

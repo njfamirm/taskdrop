@@ -19,7 +19,7 @@ Tasks have optional due dates and priorities; the app alerts the user when a dea
 6. \`due\` is an ISO 8601 string with local timezone offset (e.g. "2026-09-28T10:00:00+03:30"), or \`null\` if no deadline.
 7. \`repeat\`: One of "none" | "daily" | "weekly" | "monthly".
 8. \`priority\`: One of "none" | "low" | "medium" | "high".
-9. \`notes\` are pinned focus notes displayed at the top of the canvas.
+9. \`notes\` are pinned focus notes displayed at the top of the canvas. \`reports\` are the user's own daily written reports (one per date); preserve them as-is.
 10. \`aiMemory\` contains the user's persistent preferences and directives for you; always respect it unless explicitly asked to modify it.
 11. \`done: true\` marks a task as completed.
 12. **Scoped Tags & Organization (\`tags\`):** You may use structured scoped tags with \`key:value\` syntax (e.g. \`"حوزه:کار"\`, \`"حوزه:شخصی"\`, \`"نوع:روتین"\`, \`"پروژه:..."\`) based on the user's context and existing taxonomy. Maintain existing categories and scopes consistently.
@@ -32,8 +32,11 @@ Tasks have optional due dates and priorities; the app alerts the user when a dea
 ## Note Schema
 { "id": string, "text": string, "createdAt": string }
 
+## Report Schema
+{ "date": "YYYY-MM-DD", "text": string, "updatedAt": string }
+
 ## Database Schema
-{ "version": 1, "settings": { "sound": boolean, "notifications": boolean, "checkIntervalSec": number, "leadMinutes": number, "theme": "dark"|"light"|"auto", "language": "fa"|"en" }, "aiMemory": string, "notes": Note[], "tasks": Task[] }
+{ "version": 1, "settings": { "sound": boolean, "notifications": boolean, "checkIntervalSec": number, "leadMinutes": number, "theme": "dark"|"light"|"auto", "language": "fa"|"en" }, "aiMemory": string, "notes": Note[], "reports": Report[], "tasks": Task[] }
 `;
 
 function localISO(d: Date) {
@@ -62,6 +65,7 @@ export function buildPayload(db: DB): string {
     settings: db.settings,
     aiMemory: db.aiMemory,
     notes: db.notes.filter((n) => !n.deletedAt),
+    reports: db.reports.filter((r) => !r.deletedAt),
     tasks: db.tasks.filter((t) => !t.deletedAt),
   };
 

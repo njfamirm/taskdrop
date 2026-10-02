@@ -9,7 +9,7 @@ import {
 import { decryptData, encryptData } from "@/lib/crypto.ts";
 import { mergeDBs } from "@/lib/syncEngine.ts";
 import type { DB } from "@/lib/types.ts";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface AutoSyncOptions {
   db: DB;
@@ -17,7 +17,20 @@ interface AutoSyncOptions {
   onStatusMessage?: (msg: string) => void;
 }
 
-export function useAutoCloudSync({ db, onApplyRemote }: AutoSyncOptions) {
+/** Max time to hold alarms waiting for the first sync (e.g. device is offline) */
+const INITIAL_SYNC_TIMEOUT_MS = 4000;
+
+/** Returns true once the first sync attempt settled, so stale local state doesn't ring alarms. */
+export function useAutoCloudSync({ db, onApplyRemote }: AutoSyncOptions): boolean {
+  const [initialSyncDone, setInitialSyncDone] = useState(() => {
+    const c = loadSyncConfig();
+    return !(c.serverUrl && c.vaultId && c.secretKey);
+  });
+  useEffect(() => {
+    if (initialSyncDone) return;
+    const timer = setTimeout(() => setInitialSyncDone(true), INITIAL_SYNC_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [initialSyncDone]);
   const wsRef = useRef<WebSocket | null>(null);
   const lastPushedJsonRef = useRef<string>("");
   const isSyncingRef = useRef<boolean>(false);
@@ -74,6 +87,7 @@ export function useAutoCloudSync({ db, onApplyRemote }: AutoSyncOptions) {
       // Fail silently in background
     } finally {
       isSyncingRef.current = false;
+      setInitialSyncDone(true);
     }
   };
 
@@ -139,6 +153,7 @@ export function useAutoCloudSync({ db, onApplyRemote }: AutoSyncOptions) {
 
                 saveSyncConfig({ ...config, lastSyncedAt: data.updatedAt, enabled: true });
               }
+              setInitialSyncDone(true);
             }
           } catch {
             // Error parsing message
@@ -271,4 +286,6 @@ export function useAutoCloudSync({ db, onApplyRemote }: AutoSyncOptions) {
 
     return () => clearTimeout(timer);
   }, [db]);
+
+  return initialSyncDone;
 }

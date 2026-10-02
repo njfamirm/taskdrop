@@ -38,6 +38,14 @@ export interface Note {
   deletedAt?: string | null;
 }
 
+/** One written daily report; \`date\` is the local day (YYYY-MM-DD) and doubles as the id */
+export interface Report {
+  date: string;
+  text: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
 export interface Settings {
   /** Play audible chime on due alarm */
   sound: boolean;
@@ -61,6 +69,7 @@ export interface DB {
   /** Persistent custom memory and directives for AI */
   aiMemory?: string;
   notes: Note[];
+  reports: Report[];
   tasks: Task[];
   lastModified?: string;
 }
@@ -77,5 +86,6 @@ export const DEFAULT_DB: DB = {
   },
   aiMemory: "",
   notes: [],
+  reports: [],
   tasks: [],
 };

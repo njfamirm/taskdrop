@@ -3,6 +3,7 @@ import {
   type DB,
   type Note,
   type Priority,
+  type Report,
   type Repeat,
   type Task,
 } from "@/lib/types.ts";
@@ -69,6 +70,20 @@ function normalizeNote(raw: unknown): Note | null {
   };
 }
 
+function normalizeReport(raw: unknown): Report | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+  const date = str(r.date);
+  const text = str(r.text).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !text) return null;
+  return {
+    date,
+    text,
+    updatedAt: isoOrNull(r.updatedAt) ?? new Date().toISOString(),
+    deletedAt: isoOrNull(r.deletedAt),
+  };
+}
+
 /** Normalizes any input payload (e.g. AI-modified json) into a valid TaskDrop DB object */
 export function normalizeDB(raw: unknown): DB {
   if (typeof raw !== "object" || raw === null) return structuredClone(DEFAULT_DB);
@@ -97,6 +112,9 @@ export function normalizeDB(raw: unknown): DB {
     notes: (Array.isArray(d.notes) ? d.notes : [])
       .map(normalizeNote)
       .filter((n): n is Note => n !== null),
+    reports: (Array.isArray(d.reports) ? d.reports : [])
+      .map(normalizeReport)
+      .filter((r): r is Report => r !== null),
     tasks: (Array.isArray(d.tasks) ? d.tasks : [])
       .map(normalizeTask)
       .filter((t): t is Task => t !== null),

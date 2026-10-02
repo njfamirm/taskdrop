@@ -1,3 +1,4 @@
+import { DailyReportModal } from "@/components/DailyReportModal.tsx";
 import { HelpSheet } from "@/components/HelpSheet.tsx";
 import { SettingsModal } from "@/components/SettingsModal.tsx";
 import { SyncModal } from "@/components/SyncModal.tsx";
@@ -16,6 +17,7 @@ import {
   ClipboardCopy,
   ClipboardPaste,
   Cloud,
+  NotebookPen,
   HelpCircle,
   MoreVertical,
   Plus,
@@ -37,6 +39,7 @@ interface Props {
   onUpdateMemory: (memory: string) => void;
   onUpdateSetting: <K extends keyof DB["settings"]>(k: K, v: DB["settings"][K]) => void;
   onClearDone: () => void;
+  onSaveReport: (date: string, text: string) => void;
   onMessage: (text: string, undo?: () => void) => void;
 }
 
@@ -52,6 +55,7 @@ export function Header({
   onUpdateMemory,
   onUpdateSetting,
   onClearDone,
+  onSaveReport,
   onMessage,
 }: Props) {
   const t = getTranslation(lang);
@@ -60,6 +64,7 @@ export function Header({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [fallback, setFallback] = useState<string | null>(null);
 
   const currentTheme: ThemeMode = db.settings.theme || "dark";
@@ -275,6 +280,19 @@ export function Header({
                   <span className="flex-1 text-start">{t.cloudSync}</span>
                 </button>
 
+                {/* Daily Report */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setReportOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors cursor-pointer"
+                >
+                  <NotebookPen className="size-4 text-zinc-400" />
+                  <span className="flex-1 text-start">{t.dailyReport}</span>
+                </button>
+
                 {/* Help & Shortcuts */}
                 <button
                   type="button"
@@ -348,6 +366,15 @@ export function Header({
         lang={lang}
         onSyncApply={onReplace}
         onClose={() => setSyncOpen(false)}
+        onMessage={onMessage}
+      />
+
+      <DailyReportModal
+        open={reportOpen}
+        db={db}
+        lang={lang}
+        onSave={onSaveReport}
+        onClose={() => setReportOpen(false)}
         onMessage={onMessage}
       />
 

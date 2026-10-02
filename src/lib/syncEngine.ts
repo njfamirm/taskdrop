@@ -1,4 +1,4 @@
-import type { DB, Note, Task } from "@/lib/types.ts";
+import type { DB, Note, Report, Task } from "@/lib/types.ts";
 
 const TOMBSTONE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // Retain deletion tombstones for 30 days
 
@@ -51,6 +51,18 @@ export function mergeDBs(local: DB, incoming: DB): DB {
     }
   }
 
+  // Carry over "already rang" state so an alarm fired on one device doesn't ring again on another
+  for (const inTask of incoming.tasks) {
+    const locTask = local.tasks.find((t) => t.id === inTask.id);
+    const winner = taskMap.get(inTask.id);
+    if (!locTask || !winner || locTask.due !== inTask.due) continue;
+    const best = [locTask.notifiedAt, inTask.notifiedAt]
+      .filter((x): x is string => !!x)
+      .sort()
+      .pop();
+    if (best && best !== winner.notifiedAt) taskMap.set(winner.id, { ...winner, notifiedAt: best });
+  }
+
   // Clean up expired tombstones (> 30 days)
   const mergedTasks: Task[] = [];
   for (const t of taskMap.values()) {
@@ -96,7 +108,23 @@ export function mergeDBs(local: DB, incoming: DB): DB {
     }
   }
 
-  // 3. AI Memory merge
+  // 3. Merge daily reports (one per day, last write wins)
+  const reportMap = new Map<string, Report>();
+  for (const r of local.reports ?? []) reportMap.set(r.date, r);
+  for (const inReport of incoming.reports ?? []) {
+    const locReport = reportMap.get(inReport.date);
+    if (
+      !locReport ||
+      new Date(inReport.updatedAt).getTime() >= new Date(locReport.updatedAt).getTime()
+    ) {
+      reportMap.set(inReport.date, inReport);
+    }
+  }
+  const mergedReports = Array.from(reportMap.values()).filter(
+    (r) => !r.deletedAt || now - new Date(r.deletedAt).getTime() < TOMBSTONE_RETENTION_MS,
+  );
+
+  // 4. AI Memory merge
   let mergedMemory = (local.aiMemory || "").trim();
   const incomingMemory = (incoming.aiMemory || "").trim();
   if (!mergedMemory && incomingMemory) {
@@ -113,6 +141,7 @@ export function mergeDBs(local: DB, incoming: DB): DB {
     },
     aiMemory: mergedMemory,
     notes: mergedNotes,
+    reports: mergedReports,
     tasks: mergedTasks,
     lastModified: new Date().toISOString(),
   };
