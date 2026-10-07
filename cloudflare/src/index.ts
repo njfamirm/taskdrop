@@ -1,3 +1,5 @@
+export { VaultV2 } from "./vaultV2.ts";
+
 export interface KVNamespace {
   get<T = string>(
     key: string,
@@ -44,6 +46,7 @@ export interface Fetcher {
 export interface Env {
   VAULTS: KVNamespace;
   VAULT_ROOMS?: DurableObjectNamespace;
+  VAULT_V2?: DurableObjectNamespace;
   ASSETS?: Fetcher;
   AUTH_TOKEN?: string;
 }
@@ -249,7 +252,7 @@ export default {
       return jsonResponse({
         status: "healthy",
         platform: "cloudflare-workers",
-        features: ["websocket", "durable-objects", "e2ee-kv"],
+        features: ["websocket", "durable-objects", "e2ee-kv", "sync-v2"],
         protected: Boolean(env.AUTH_TOKEN?.trim()),
         time: new Date().toISOString(),
       });
@@ -258,6 +261,26 @@ export default {
     // ۳. اعتبارسنجی توکن دسترسی سرور
     if (!isAuthorized(request, env)) {
       return jsonResponse({ error: "Unauthorized: Invalid or missing server access token" }, 401);
+    }
+
+    // ۳.۵. پروتکل سینک نسخه ۲: /v2/ws/:vaultId و /v2/api/:vaultId
+    const v2Match = pathname.match(/^\/v2\/(ws|api)\/([^/]{1,128})$/);
+    if (v2Match) {
+      if (!env.VAULT_V2)
+        return jsonResponse({ error: "Sync v2 is not enabled on this server" }, 404);
+      const stub = env.VAULT_V2.get(env.VAULT_V2.idFromName(v2Match[2]));
+      if (v2Match[1] === "ws") {
+        if (request.headers.get("Upgrade") !== "websocket") {
+          return jsonResponse({ error: "Expected WebSocket upgrade" }, 426);
+        }
+        return stub.fetch(request);
+      }
+      if (request.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+      const res = await stub.fetch(request);
+      return new Response(res.body, {
+        status: res.status,
+        headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+      });
     }
 
     // ۴. وب‌سوکت روت: /ws/:vaultId

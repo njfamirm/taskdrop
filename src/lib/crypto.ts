@@ -76,3 +76,71 @@ export async function decryptData(cipherJson: string, secretKey: string): Promis
   const dec = new TextDecoder();
   return dec.decode(decrypted);
 }
+
+/* ---------------------------------------------------------------------------
+ * Per-record encryption for sync protocol v2.
+ * The AES key is derived once per (vault, secret) with a salt bound to the vault id,
+ * then reused for every record; each record gets a fresh random IV and is bound to its
+ * record key via AES-GCM additional data so the relay cannot swap ciphertexts between keys.
+ * ------------------------------------------------------------------------- */
+
+const vaultKeyCache = new Map<string, Promise<CryptoKey>>();
+
+function getVaultKey(secret: string, vaultId: string): Promise<CryptoKey> {
+  const cacheId = `${vaultId}\u0000${secret}`;
+  let key = vaultKeyCache.get(cacheId);
+  if (!key) {
+    key = (async () => {
+      const digest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(`taskdrop-v2:${vaultId}`),
+      );
+      return deriveKey(secret, new Uint8Array(digest).slice(0, 16));
+    })();
+    key.catch(() => vaultKeyCache.delete(cacheId));
+    vaultKeyCache.set(cacheId, key);
+  }
+  return key;
+}
+
+export async function encryptRecord(
+  plainText: string,
+  secret: string,
+  vaultId: string,
+  recordKey: string,
+): Promise<string> {
+  const enc = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await getVaultKey(secret, vaultId);
+  const cipher = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, additionalData: enc.encode(recordKey) },
+      key,
+      enc.encode(plainText),
+    ),
+  );
+  const out = new Uint8Array(iv.length + cipher.length);
+  out.set(iv, 0);
+  out.set(cipher, iv.length);
+  return bufferToBase64(out.buffer);
+}
+
+export async function decryptRecord(
+  blob: string,
+  secret: string,
+  vaultId: string,
+  recordKey: string,
+): Promise<string> {
+  const raw = new Uint8Array(base64ToBuffer(blob));
+  const key = await getVaultKey(secret, vaultId);
+  const plain = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: raw.slice(0, 12),
+      additionalData: new TextEncoder().encode(recordKey),
+    },
+    key,
+    raw.slice(12),
+  );
+  return new TextDecoder().decode(plain);
+}

@@ -21,15 +21,13 @@ import {
   decodeSyncPairingToken,
   encodeSyncPairingToken,
   loadSyncConfig,
-  pullFromVault,
-  pushToVault,
   saveSyncConfig,
   type SyncConfig,
 } from "@/lib/cloudSync.ts";
 import { hapticSelection, hapticSuccess } from "@/lib/haptics.ts";
 import { getTranslation } from "@/lib/i18n.ts";
-import { mergeDBs } from "@/lib/syncEngine.ts";
-import type { DB, Language } from "@/lib/types.ts";
+import { syncClient } from "@/lib/sync/client.ts";
+import type { Language } from "@/lib/types.ts";
 import { cn } from "@/lib/utils.ts";
 import {
   Check,
@@ -48,14 +46,12 @@ import { useEffect, useState } from "react";
 
 interface Props {
   open: boolean;
-  db: DB;
   lang?: Language;
-  onSyncApply: (newDb: DB) => void;
   onClose: () => void;
   onMessage: (msg: string) => void;
 }
 
-export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessage }: Props) {
+export function SyncModal({ open, lang = "fa", onClose, onMessage }: Props) {
   const t = getTranslation(lang);
   const isFa = lang === "fa";
 
@@ -133,7 +129,7 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
     }
   };
 
-  // Two-way cloud sync (Pull -> Merge -> Push)
+  // Manual sync: runs a full round of the background engine and reports the outcome
   const handleCloudSync = async (overrideCfg?: SyncConfig) => {
     const cfg = overrideCfg || syncConfig;
     if (!cfg.serverUrl.trim() || !cfg.vaultId.trim() || !cfg.secretKey.trim()) {
@@ -143,25 +139,9 @@ export function SyncModal({ open, db, lang = "fa", onSyncApply, onClose, onMessa
 
     setIsSyncing(true);
     try {
-      saveSyncConfig(cfg);
-
-      // 1. Pull remote encrypted vault
-      const remote = await pullFromVault(cfg.serverUrl, cfg.vaultId, cfg.secretKey, cfg.authToken);
-
-      let finalDb = db;
-      if (remote) {
-        // 2. Conflict-free merge
-        finalDb = mergeDBs(db, remote.db);
-        onSyncApply(finalDb);
-      }
-
-      // 3. Push merged state
-      await pushToVault(cfg.serverUrl, cfg.vaultId, cfg.secretKey, finalDb, cfg.authToken);
-
-      const now = Date.now();
-      const updatedConfig = { ...cfg, lastSyncedAt: now, enabled: true };
-      setSyncConfig(updatedConfig);
-      saveSyncConfig(updatedConfig);
+      saveSyncConfig({ ...cfg, enabled: true });
+      await syncClient.syncNow();
+      setSyncConfig(loadSyncConfig());
 
       void hapticSuccess();
       onMessage(t.syncSuccess);

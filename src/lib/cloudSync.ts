@@ -1,5 +1,4 @@
 import { decryptData, encryptData } from "@/lib/crypto.ts";
-import { mergeDBs } from "@/lib/syncEngine.ts";
 import type { DB } from "@/lib/types.ts";
 
 export interface SyncConfig {
@@ -70,6 +69,18 @@ export function getWebSocketUrl(serverUrl: string, vaultId: string, authToken?: 
   return `${wsProto}${hostAndPath}/ws/${encodeURIComponent(vaultId)}${query}`;
 }
 
+/** WebSocket URL of the v2 sync protocol */
+export function getWebSocketUrlV2(serverUrl: string, vaultId: string, authToken?: string): string {
+  const targetUrl = resolveEffectiveServerUrl(serverUrl);
+  if (!targetUrl || !vaultId) return "";
+  const cleanUrl = targetUrl.replace(/\/+$/, "");
+  const wsProto = cleanUrl.startsWith("https://") ? "wss://" : "ws://";
+  const hostAndPath = cleanUrl.replace(/^https?:\/\//, "");
+  const query =
+    authToken && authToken.trim() ? `?token=${encodeURIComponent(authToken.trim())}` : "";
+  return `${wsProto}${hostAndPath}/v2/ws/${encodeURIComponent(vaultId)}${query}`;
+}
+
 /** Generates compact base64 pairing token for QR codes and fast device syncing */
 export function encodeSyncPairingToken(cfg: SyncConfig): string {
   const payload = {
@@ -94,7 +105,7 @@ export function decodeSyncPairingToken(token: string): Partial<SyncConfig> {
   };
 }
 
-function getAuthHeaders(authToken?: string): Record<string, string> {
+export function getAuthHeaders(authToken?: string): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (authToken && authToken.trim()) {
     headers["Authorization"] = `Bearer ${authToken.trim()}`;
@@ -200,45 +211,5 @@ export async function pullFromVault(
   return {
     db: incomingDb,
     updatedAt: data.updatedAt,
-  };
-}
-
-/** Two-way automatic vault synchronization */
-export async function syncVault(
-  config: SyncConfig,
-  currentDb: DB,
-): Promise<{ mergedDb: DB; updated: boolean }> {
-  if (!config.enabled || !config.serverUrl || !config.vaultId || !config.secretKey) {
-    return { mergedDb: currentDb, updated: false };
-  }
-
-  const remote = await pullFromVault(
-    config.serverUrl,
-    config.vaultId,
-    config.secretKey,
-    config.authToken,
-  );
-
-  if (!remote) {
-    await pushToVault(
-      config.serverUrl,
-      config.vaultId,
-      config.secretKey,
-      currentDb,
-      config.authToken,
-    );
-    return { mergedDb: currentDb, updated: true };
-  }
-
-  const merged = mergeDBs(currentDb, remote.db);
-  const isChanged = JSON.stringify(merged) !== JSON.stringify(remote.db);
-
-  if (isChanged) {
-    await pushToVault(config.serverUrl, config.vaultId, config.secretKey, merged, config.authToken);
-  }
-
-  return {
-    mergedDb: merged,
-    updated: true,
   };
 }

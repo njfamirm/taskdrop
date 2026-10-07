@@ -64,7 +64,7 @@ function computeSnoozeTime(preset: SnoozePreset): string {
 }
 
 export function App() {
-  const { db, setDb, update } = useDB();
+  const { db, setDb, update, getDb } = useDB();
   const lang: Language = db.settings.language || "fa";
   const t = getTranslation(lang);
 
@@ -76,7 +76,8 @@ export function App() {
   // Automatic real-time background cloud synchronization
   const initialSyncDone = useAutoCloudSync({
     db,
-    onApplyRemote: setDb,
+    getDb,
+    applyDb: update,
   });
 
   const [now, setNow] = useState(() => Date.now());

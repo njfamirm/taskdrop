@@ -1,23 +1,37 @@
 import { loadDB, saveDB } from "@/lib/store.ts";
 import type { DB } from "@/lib/types.ts";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+/**
+ * App database state. Writes are applied synchronously to a ref and to localStorage, so every
+ * reader (including the background sync engine) always sees the latest committed db and
+ * "update" never works on a stale snapshot.
+ */
 export function useDB() {
-  const [db, setDb] = useState<DB>(() => loadDB());
+  const [db, setDbState] = useState<DB>(() => loadDB());
+  const dbRef = useRef<DB>(db);
 
-  useEffect(() => {
-    saveDB(db);
-  }, [db]);
+  const commit = useCallback((next: DB) => {
+    dbRef.current = next;
+    try {
+      saveDB(next);
+    } catch {
+      // Storage full or blocked: keep working in memory
+    }
+    setDbState(next);
+  }, []);
 
   // Synchronize state across multiple browser tabs
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "daily.db.v1") setDb(loadDB());
+      if (e.key === "daily.db.v1") commit(loadDB());
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [commit]);
 
-  const update = useCallback((fn: (prev: DB) => DB) => setDb(fn), []);
-  return { db, setDb, update };
+  const setDb = commit;
+  const update = useCallback((fn: (prev: DB) => DB) => commit(fn(dbRef.current)), [commit]);
+  const getDb = useCallback(() => dbRef.current, []);
+  return { db, setDb, update, getDb };
 }

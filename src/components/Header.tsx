@@ -387,9 +387,7 @@ export function Header({
 
       <SyncModal
         open={syncOpen}
-        db={db}
         lang={lang}
-        onSyncApply={onReplace}
         onClose={() => setSyncOpen(false)}
         onMessage={onMessage}
       />

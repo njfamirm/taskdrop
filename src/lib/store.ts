@@ -28,7 +28,7 @@ function isoOrNull(v: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function normalizeTask(raw: unknown): Task | null {
+export function normalizeTask(raw: unknown): Task | null {
   if (typeof raw !== "object" || raw === null) return null;
   const t = raw as Record<string, unknown>;
   const title = str(t.title).trim();
@@ -55,7 +55,7 @@ function normalizeTask(raw: unknown): Task | null {
   };
 }
 
-function normalizeNote(raw: unknown): Note | null {
+export function normalizeNote(raw: unknown): Note | null {
   if (typeof raw !== "object" || raw === null) return null;
   const n = raw as Record<string, unknown>;
   const text = str(n.text).trim();
@@ -70,7 +70,7 @@ function normalizeNote(raw: unknown): Note | null {
   };
 }
 
-function normalizeReport(raw: unknown): Report | null {
+export function normalizeReport(raw: unknown): Report | null {
   if (typeof raw !== "object" || raw === null) return null;
   const r = raw as Record<string, unknown>;
   const date = str(r.date);

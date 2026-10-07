@@ -13,11 +13,18 @@ binding = "VAULTS"
 id = "c9bf43b6a07f435f9f58d3727baeed03"
 
 [durable_objects]
-bindings = [{ name = "VAULT_ROOMS", class_name = "VaultRoom" }]
+bindings = [
+  { name = "VAULT_ROOMS", class_name = "VaultRoom" },
+  { name = "VAULT_V2", class_name = "VaultV2" },
+]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["VaultRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["VaultV2"]
 
 [observability]
 enabled = true
